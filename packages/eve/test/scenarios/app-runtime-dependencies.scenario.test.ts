@@ -608,6 +608,9 @@ describe("app runtime dependency tracing", () => {
       join(packageRoot, "package.json"),
       JSON.stringify(
         {
+          dependencies: {
+            eve: "1.0.0",
+          },
           exports: {
             ".": "./index.js",
           },
@@ -622,12 +625,44 @@ describe("app runtime dependency tracing", () => {
     await writeFile(
       join(packageRoot, "index.js"),
       [
+        'import { externalClosureMarker } from "eve/connections";',
         'export const label = "fixture-external-only-dep";',
         "export default {",
+        "  externalClosureMarker,",
         "  label,",
         "};",
         "",
       ].join("\n"),
+    );
+
+    const evePackageRoot = join(appRoot, "node_modules", "eve");
+    const eveConnectionsRoot = join(evePackageRoot, "dist", "public", "connections");
+    await mkdir(eveConnectionsRoot, { recursive: true });
+    await writeFile(
+      join(evePackageRoot, "package.json"),
+      JSON.stringify(
+        {
+          exports: {
+            "./connections": "./dist/public/connections/index.js",
+          },
+          imports: {
+            "#*.js": "./dist/*.js",
+          },
+          name: "eve",
+          type: "module",
+          version: "1.0.0",
+        },
+        null,
+        2,
+      ),
+    );
+    await writeFile(
+      join(eveConnectionsRoot, "index.js"),
+      'export { externalClosureMarker } from "#public/connections/errors.js";\n',
+    );
+    await writeFile(
+      join(eveConnectionsRoot, "errors.js"),
+      'export const externalClosureMarker = "external-closure-present";\n',
     );
 
     const outputDir = await buildApplication(appRoot, DEPLOYABLE_BUILD_OPTIONS);
@@ -649,6 +684,21 @@ describe("app runtime dependency tracing", () => {
         "utf8",
       ),
     ).resolves.toContain('"name": "fixture-external-only-dep"');
+    await expect(
+      readFile(
+        join(
+          outputDir,
+          "server",
+          "node_modules",
+          "eve",
+          "dist",
+          "public",
+          "connections",
+          "errors.js",
+        ),
+        "utf8",
+      ),
+    ).resolves.toContain("external-closure-present");
     expect(serverModuleSource).toContain('"fixture-external-only-dep"');
     expect(serverModuleSource).not.toContain('export const label = "fixture-external-only-dep";');
   }, 30_000);

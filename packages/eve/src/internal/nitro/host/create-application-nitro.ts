@@ -68,6 +68,7 @@ const WORKFLOW_CACHE_PATH_FRAGMENT = "/.eve/workflow-cache/";
  * traces it into `server/node_modules` automatically.
  */
 const FRAMEWORK_HOSTED_EXTERNAL_PACKAGES: readonly string[] = ["@napi-rs/keyring"];
+const EVE_FULL_TRACE_SELECTOR = `${EVE_PACKAGE_NAME}*`;
 const LOCAL_SANDBOX_BACKEND_NAMES = new Set([
   "docker",
   ...Object.keys(OPTIONAL_ENGINE_PACKAGES_BY_BACKEND_NAME),
@@ -125,6 +126,11 @@ function collectHostedTraceDependencies(
   // additions to that upstream policy.
   const merged = new Set<string>([
     ...FRAMEWORK_HOSTED_EXTERNAL_PACKAGES,
+    // An external dependency can import an eve public subpath, causing nf3 to
+    // trace eve transitively. Its resolver cannot follow eve's embedded
+    // `#*.js` import-map wildcard. Nitro's trailing `*` selector preserves the
+    // complete package instead of emitting entrypoints without their closure.
+    ...(configuredExternalDependencies.length === 0 ? [] : [EVE_FULL_TRACE_SELECTOR]),
     // Optional engine packages (just-bash, microsandbox) join the
     // externalize-and-trace path only when the compiled sandbox config
     // selects their backend — the app's opt-in. Otherwise
