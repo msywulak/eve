@@ -325,6 +325,10 @@ export interface RunInput {
    * parent depth + 1.
    */
   readonly subagentDepth?: number;
+  /** Framework-owned metadata for a protocol-neutral external invocation. */
+  readonly externalInvocation?: {
+    readonly continuationToken: string;
+  };
 }
 
 export interface DeliverInput {

@@ -42,6 +42,7 @@ import { getCompiledRuntimeAgentBundle } from "#runtime/sessions/compiled-agent-
 import { buildRunContext } from "#execution/runtime-context.js";
 import { parseNdjsonStream } from "#execution/ndjson-stream.js";
 import { RuntimeNoActiveSessionError } from "#execution/runtime-errors.js";
+import { buildInvocationAttributes } from "#internal/invocation/metadata.js";
 import {
   sessionCancelHookToken,
   type TurnCancelPayload,
@@ -115,7 +116,7 @@ export function createWorkflowRuntime(config: {
       const ctx = buildRunContext({ bundle, run: input });
       const serializedContext = serializeContext(ctx);
       const parentLineage = readParentLineage(serializedContext);
-      const attributes =
+      const sessionAttributes =
         parentLineage.sessionId === undefined
           ? buildSessionAttributes({
               inputMessage: input.title ?? input.input.message,
@@ -129,6 +130,12 @@ export function createWorkflowRuntime(config: {
               rootSessionId: parentLineage.rootSessionId ?? parentLineage.sessionId,
               serializedContext,
             });
+      const attributes = {
+        ...sessionAttributes,
+        ...(input.externalInvocation === undefined
+          ? {}
+          : buildInvocationAttributes(input.externalInvocation)),
+      };
 
       let run: Awaited<ReturnType<typeof startWorkflowPreferLatest>>;
       try {
