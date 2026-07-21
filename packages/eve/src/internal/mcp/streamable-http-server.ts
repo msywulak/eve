@@ -60,12 +60,16 @@ export function createMcpStreamableHttpServer(
       if (auth instanceof Response) return auth;
       return jsonRpcHttpError(405, "This stateless MCP server has no transport session to delete.");
     }
-    if (request.method !== "POST") {
-      return new Response(null, { headers: { allow: "POST" }, status: 405 });
+    if (request.method !== "GET" && request.method !== "POST") {
+      return new Response(null, { headers: { allow: "GET, POST, DELETE" }, status: 405 });
     }
 
     const auth = await options.authenticate(request);
     if (auth instanceof Response) return auth;
+
+    if (request.method === "GET") {
+      return new Response(null, { headers: { allow: "POST, DELETE" }, status: 405 });
+    }
 
     let value: unknown;
     try {

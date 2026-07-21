@@ -102,7 +102,7 @@ describe("stateless MCP Streamable HTTP server", () => {
     expect(await notification.text()).toBe("");
   });
 
-  it("authenticates before parsing and rejects DELETE for a stateless server", async () => {
+  it("authenticates before parsing and rejects transport sessions for a stateless server", async () => {
     const challenge = new Response(null, {
       headers: {
         "www-authenticate":
@@ -120,7 +120,17 @@ describe("stateless MCP Streamable HTTP server", () => {
     expect(unauthorized.status).toBe(401);
     expect(unauthorized.headers.get("www-authenticate")).toContain("resource_metadata=");
 
+    const streamed = await handle(new Request("https://agent.example/mcp"));
+    expect(streamed.status).toBe(401);
+
     const deleted = await handle(new Request("https://agent.example/mcp", { method: "DELETE" }));
     expect(deleted.status).toBe(401);
+  });
+
+  it("returns 405 for authenticated GET because stateless mode has no SSE stream", async () => {
+    const { handle } = server();
+    const response = await handle(new Request("https://agent.example/mcp"));
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("POST, DELETE");
   });
 });

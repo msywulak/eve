@@ -1,0 +1,60 @@
+---
+title: MCP
+description: Publish an eve agent as a durable MCP invocation service.
+---
+
+The MCP channel lets external harnesses such as Claude Code delegate durable work to an eve agent. It exposes only agent invocation—not the agent's authored tools, skills, instructions, connections, or subagents.
+
+## Configure the channel
+
+Create `agent/channels/mcp.ts`:
+
+```ts
+import { oidc } from "eve/channels/auth";
+import { mcpChannel } from "eve/channels/mcp";
+
+export default mcpChannel({
+  agent: {
+    description: "Investigates software tasks and returns a concise report.",
+  },
+  auth: oidc({
+    issuer: process.env.MCP_OIDC_ISSUER!,
+    audiences: [process.env.MCP_OIDC_AUDIENCE!],
+  }),
+  oauth: {
+    authorizationServers: [process.env.MCP_OIDC_ISSUER!],
+    resource: process.env.MCP_RESOURCE_URL!,
+  },
+});
+```
+
+The authorization server must accept Claude's OAuth client flow, using dynamic client registration or a configured client ID. eve is an OAuth protected resource and does not issue tokens.
+
+The resource URL should be the canonical deployed MCP URL, for example `https://agent.example/mcp`. Unauthenticated MCP requests receive an RFC 9728 protected-resource challenge.
+
+## Connect Claude Code
+
+```sh
+claude mcp add --transport http eve-demo https://<deployment>/mcp
+claude mcp login eve-demo
+claude mcp get eve-demo
+```
+
+Ask Claude to call `agent_start` once, retain its `invocationId`, and call `agent_get` until the invocation is terminal. Each `agent_start` call creates a new invocation, so an ambiguously failed start should not be retried automatically.
+
+The compatibility tools are:
+
+- `agent_start({ message, outputSchema? })`
+- `agent_get({ invocationId })`
+- `agent_update({ invocationId, responses })`
+- `agent_cancel({ invocationId })`
+
+Every operation reauthenticates against the channel's configured policy. The unguessable invocation ID is a capability handle: any caller authorized to use the endpoint who has the ID may inspect, update, or cancel that invocation. `agent_get` reconstructs invocation state from the existing durable session event stream and does not start work or run a model. While an invocation is working, clients should honor its `pollAfterMs` hint before reading it again.
+
+## Manual acceptance
+
+1. Ask Claude to start deterministic work and retain the returned invocation ID.
+2. Disconnect and reconnect the MCP server, then retrieve the invocation.
+3. Authenticate as another authorized principal and confirm it can retrieve the invocation when given its ID.
+4. Exercise a task that calls `ask_question`, answer it through `agent_update`, and retrieve the result.
+5. Start another task, call `agent_cancel`, and read until cancellation is acknowledged.
