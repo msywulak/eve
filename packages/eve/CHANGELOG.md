@@ -1,5 +1,15 @@
 # eve
 
+## 0.27.1
+
+### Patch Changes
+
+- eaaf6d6: Enable Workflow's optimistic concurrency precondition guard in every generated Vercel workflow function so stale replays reload concurrent events before committing.
+- 0df8ab9: Update the bundled AI SDK and provider integrations to their latest compatible releases.
+- 394b467: Update the bundled Vercel integrations and core execution utilities to their latest compatible releases.
+- f2724fb: Update the Vite integration and Vitest test tooling to their latest compatible releases.
+- a70d4ce: Restart native progress feedback across built-in chat channels when a completed connection authorization resumes the agent session. Slack also shows an explicit connected and resuming status.
+
 ## 0.27.0
 
 ### Minor Changes
